@@ -1,0 +1,37 @@
+/* Header sub-menu icon */
+
+.hide-icon.main-menu ul.sub-menu li a:before {
+  display: none;
+}
+
+.hide-icon.main-menu ul.sub-menu li a:hover {
+  padding-left: 0;
+}
+
+.widget.no-banner-widget {
+  padding: 0;
+  background-color: transparent;
+  margin-bottom: 0px;
+  position: relative;
+  border-radius: 0px;
+  border: 0px solid transparent;
+}
+
+.not-valid-tip {
+  color: red;
+  font-size: 12px;
+}
+
+.sticky-header-links {
+  display: none;
+  justify-content: center;
+}
+
+.sticky-header-links ul li a {
+  color: black;
+}
+
+.sticky-header-links.show {
+  display: flex;
+  padding-top: 0.25rem;
+}

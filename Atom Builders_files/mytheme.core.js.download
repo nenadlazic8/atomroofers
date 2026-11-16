@@ -1,0 +1,294 @@
+// =========================================================================
+// NEW CODE START: Helper function for GTM events
+// =========================================================================
+
+/**
+ * Pushes a custom event to the GTM dataLayer and sets a flag in localStorage
+ * to ensure it only fires once per user.
+ * @param {string} eventName The name of the custom event for GTM.
+ * @param {string} storageKey The localStorage key to check and set.
+ */
+function fireGtmEventOnce(eventName, storageKey) {
+  // Check if the flag has already been set in localStorage
+  if (!localStorage.getItem(storageKey)) {
+    // If not set, push the event to the dataLayer
+    window.dataLayer = window.dataLayer || [];
+    window.dataLayer.push({
+      event: eventName,
+    });
+
+    // Set the flag in localStorage to prevent future firing
+    localStorage.setItem(storageKey, 'true');
+    console.log(`GTM Event Fired: ${eventName}`);
+  } else {
+    console.log(`GTM Event '${eventName}' already fired for this user.`);
+  }
+}
+
+// =========================================================================
+// NEW CODE END
+// =========================================================================
+
+const genFormErrorMsg = document.getElementById('general-form-error-msg');
+const lottiePlayers = document.querySelectorAll('#player');
+
+// JavaScript code to handle newsletter form submission
+const newsletterForm = document.getElementById('newsletter-form');
+const newsletterSuccessMsg = document.getElementById(
+  'newsletter-form-success-message'
+);
+const newsletterSubmitBtn = document.getElementById('subscribe-submit-btn');
+
+newsletterForm.addEventListener('submit', function (event) {
+  event.preventDefault();
+  newsletterSubmitBtn.disabled = true;
+  newsletterSubmitBtn.style.opacity = 0.8;
+  newsletterSubmitBtn.innerHTML = 'Subscribing...';
+
+  const formData = new FormData(this);
+  const formValues = Object.fromEntries(formData.entries());
+
+  fetch('https://mailservice-liard.vercel.app/api/atombuilderinc/newsletter', {
+    method: 'POST',
+    body: JSON.stringify(formValues),
+  })
+    .then(function (response) {
+      if (!response.ok) {
+        throw new Error('Unknown error occurred. Please try again.');
+      } else {
+        return response.json();
+      }
+    })
+    .then((data) => {
+      if (data.errors) {
+        throw new Error(data.errors);
+      } else {
+        newsletterForm.setAttribute('hidden', '');
+        newsletterSuccessMsg.removeAttribute('hidden');
+        lottiePlayers?.forEach((player) => player.play());
+        this.reset();
+      }
+    })
+    .catch(function (error) {
+      console.log(error.message);
+    })
+    .finally(() => {
+      newsletterSubmitBtn.disabled = false;
+      newsletterSubmitBtn.style.opacity = 1;
+      newsletterSubmitBtn.innerHTML = 'Subscribe';
+    });
+});
+
+// JavaScript code to handle contact us form submission
+const contactForm = document.getElementById('contact-form');
+const contactFormSuccessMsg = document.getElementById(
+  'contact-form-success-message'
+);
+const quoteSubmitBtn = document.getElementById('quote-submit-btn');
+
+// =========================================================================
+// NEW CODE START: Add event listener for the first field interaction
+// =========================================================================
+const firstFormField = contactForm?.querySelector(
+  'input[name="MSM_firstname"]'
+);
+if (firstFormField) {
+  firstFormField.addEventListener(
+    'focus',
+    () => {
+      fireGtmEventOnce(
+        'form_interaction_start',
+        'gtm_form_interaction_started'
+      );
+    },
+    {
+      once: true,
+    } // {once: true} makes the browser automatically remove this listener after it fires once per page load.
+    // The localStorage check handles persistence across reloads.
+  );
+}
+// =========================================================================
+// NEW CODE END
+// =========================================================================
+
+contactForm?.addEventListener('submit', function (event) {
+  event.preventDefault();
+  quoteSubmitBtn.disabled = true;
+  quoteSubmitBtn.style.opacity = 0.8;
+  quoteSubmitBtn.innerHTML = 'Submitting...';
+
+  const formData = new FormData(this);
+  const formValues = Object.fromEntries(formData.entries());
+
+  document.querySelectorAll('.not-valid-tip').forEach(function (errorSpan) {
+    errorSpan.remove();
+  });
+
+  const validationErrors = validateForm(formValues);
+
+  if (Object.keys(validationErrors).length > 0) {
+    displayErrors(validationErrors);
+    quoteSubmitBtn.disabled = false;
+    quoteSubmitBtn.style.opacity = 1;
+    quoteSubmitBtn.innerHTML = 'Get Free Quote';
+  } else {
+    formData.set(
+      'MSM_cellphone',
+      libphonenumber.parsePhoneNumber(formValues.MSM_cellphone, 'US')
+        .nationalNumber
+    );
+    genFormErrorMsg.setAttribute('hidden', '');
+
+    fetch('https://mailservice-liard.vercel.app/api/atombuilderinc', {
+      method: 'POST',
+      body: formData,
+    })
+      .then(function (response) {
+        if (!response.ok) {
+          throw new Error('Unknown error occurred. Please try again.');
+        } else {
+          return response.json();
+        }
+      })
+      .then((data) => {
+        if (data.errors) {
+          throw new Error(data.errors);
+        } else {
+          fireGtmEventOnce(
+            'form_submission_success',
+            'gtm_form_submitted_successfully'
+          );
+
+          contactForm.setAttribute('hidden', '');
+          contactFormSuccessMsg.removeAttribute('hidden');
+          lottiePlayers?.forEach((player) => player.play());
+          this.reset();
+
+          if (window.gtag) {
+            gtag('event', 'conversion', {
+              send_to: 'AW-16745861658/BBZ6CPjs_d4ZEJqkhrE-',
+              ...formValues,
+            });
+          }
+        }
+      })
+      .catch(function (error) {
+        genFormErrorMsg.removeAttribute('hidden');
+        genFormErrorMsg.textContent = error.message;
+      })
+      .finally(() => {
+        quoteSubmitBtn.disabled = false;
+        quoteSubmitBtn.style.opacity = 1;
+        quoteSubmitBtn.innerHTML = 'Get Free Quote';
+      });
+  }
+});
+
+// Function to validate the form fields
+function validateForm(values) {
+  const errors = {};
+  if (!values.MSM_firstname || values.MSM_firstname.trim() === '') {
+    errors.MSM_firstname = 'Please fill out this field.';
+  }
+  if (!values.MSM_lastname || values.MSM_lastname.trim() === '') {
+    errors.MSM_lastname = 'Please fill out this field.';
+  }
+  if (!values.MSM_cellphone || !isValidUSPhoneNumber(values.MSM_cellphone)) {
+    errors.MSM_cellphone = 'Please enter a valid US phone number.';
+  }
+  if (!values.MSM_custom_zip || values.MSM_custom_zip.trim() === '') {
+    errors.MSM_custom_zip = 'Please fill out this field.';
+  }
+  return errors;
+}
+
+// Function to display validation error messages
+function displayErrors(errors) {
+  Object.keys(errors).forEach(function (fieldName) {
+    const fieldWrapper = document.querySelector(
+      `.wpcf7-form-control-wrap[data-name="${fieldName}"]`
+    );
+    if (fieldWrapper) {
+      const errorSpan = document.createElement('span');
+      errorSpan.classList.add('not-valid-tip');
+      errorSpan.setAttribute('aria-hidden', 'true');
+      errorSpan.textContent = errors[fieldName];
+      fieldWrapper.appendChild(errorSpan);
+    }
+  });
+}
+
+// Helper function to check if a phone number is a valid US phone number
+function isValidUSPhoneNumber(phone) {
+  const parsed = libphonenumber.parsePhoneNumber(phone, 'US');
+  return parsed?.isPossible() && parsed?.country === 'US';
+}
+
+document.getElementById('phone')?.addEventListener('input', function (e) {
+  if (e.key !== 'Backspace') {
+    const formattedPhone = new libphonenumber.AsYouType('US').input(
+      e.currentTarget.value
+    );
+    e.currentTarget.value = formattedPhone;
+  }
+});
+
+document
+  .getElementById('menu-primary-menu')
+  .addEventListener('click', function () {
+    const mobileMenu = document.getElementsByClassName('th-body-visible');
+    if (mobileMenu.length > 0) {
+      mobileMenu[0].classList.remove('th-body-visible');
+    }
+  });
+
+const targetElement = document.getElementById('quote-form-wrapper');
+var getQt = document.querySelector('.get-quote-float');
+let originalVisibility = getQt.style.visibility || 'visible';
+
+const callback = (entries, observer) => {
+  entries.forEach((entry) => {
+    if (entry.isIntersecting) {
+      if (getQt.classList.contains('show')) {
+        getQt.style.visibility = 'hidden';
+      }
+    } else {
+      getQt.style.visibility = originalVisibility;
+    }
+  });
+};
+
+const observer = new IntersectionObserver(callback, {
+  root: null,
+  threshold: 0.1,
+});
+
+if (targetElement) {
+  observer.observe(targetElement);
+}
+
+function populateHiddenFields() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const hiddenFields = [
+    'local_campaign',
+    'local_gclid',
+    'local_msclkid',
+    'local_gbraid',
+    'local_wbraid',
+    'local_source',
+    'local_medium',
+    'local_term',
+  ];
+
+  hiddenFields.forEach((field) => {
+    const value = urlParams.get(field.replace('local_', ''));
+    if (value) {
+      const fieldElement = document.getElementById(field);
+      if (fieldElement) {
+        fieldElement.value = value;
+      }
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', populateHiddenFields);
